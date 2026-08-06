@@ -109,7 +109,10 @@ client.once('ready', async () => {
         
         const filteredHistory = reverseHistory.filter(msg => msg.content && msg.content.trim() !== '');
 
-        messageHistory = filteredHistory.map(msg => ({ id: msg.id, text: msg.content }));
+        messageHistory = filteredHistory.map(msg => ({
+            id: msg.id,
+            text: `${msg.author.username}: ${msg.content}`
+        }));
         
         console.log(`Successfully imported ${messageHistory.length} historical text messages!`);
     } catch (error) {
@@ -280,7 +283,10 @@ client.on('messageCreate', (message) => {
     if (message.channel.id === CHANNEL_ID || message.channel.id === '1529275850011312168') {
         if (!message.content || message.content.trim() === '') return;
 
-        messageHistory.push({ id: message.id, text: message.content });
+        messageHistory.push({
+            id: message.id,
+            text: `${message.author.username}: ${message.content}`
+        });
 
         if (messageHistory.length > 50) {
             messageHistory.shift(); 
@@ -306,24 +312,12 @@ client.on('messageDeleteBulk', (deletedMessages) => {
 
 // --- HTTP SERVER ---
 app.get('/msg', (req, res) => {
-    // 1. Map our history array to include only the clean message content strings
-    const rawMessages = messageHistory.map(msg => msg.text);
-    
-    // 2. Wrap each message string inside literal double quotes
-    const quotedMessages = rawMessages.map(text => `"${text}"`);
-    
-    // 3. Join them with actual commas to build a manual JSON array string
-    const arrayString = `[${quotedMessages.join(',')}]`;
-    
-    // 4. Wrap it in your exact target structure object layout
-    const finalOutput = `{"messages":${arrayString}}`;
-    
-    // 5. Send it back as raw, clean text so TurboWarp doesn't strip anything
-    res.setHeader('Content-Type', 'text/plain');
-    res.send(finalOutput);
+    const stringMessages = messageHistory.map(msg => msg.text);
+    res.json({ messages: stringMessages }); 
 });
 
 client.login(BOT_TOKEN);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Middleman server running on port ${PORT}`));
+
