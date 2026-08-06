@@ -109,10 +109,7 @@ client.once('ready', async () => {
         
         const filteredHistory = reverseHistory.filter(msg => msg.content && msg.content.trim() !== '');
 
-        messageHistory = filteredHistory.map(msg => ({
-            id: msg.id,
-            text: `${msg.author.username}: ${msg.content}`
-        }));
+        messageHistory = filteredHistory.map(msg => ({ id: msg.id, text: msg.content }));
         
         console.log(`Successfully imported ${messageHistory.length} historical text messages!`);
     } catch (error) {
