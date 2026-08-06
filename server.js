@@ -280,10 +280,7 @@ client.on('messageCreate', (message) => {
     if (message.channel.id === CHANNEL_ID || message.channel.id === '1529275850011312168') {
         if (!message.content || message.content.trim() === '') return;
 
-        messageHistory.push({
-            id: message.id,
-            text: `${message.author.username}: ${message.content}`
-        });
+        messageHistory.push({ id: message.id, text: message.content });
 
         if (messageHistory.length > 50) {
             messageHistory.shift(); 
