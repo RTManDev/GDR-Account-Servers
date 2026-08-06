@@ -306,8 +306,21 @@ client.on('messageDeleteBulk', (deletedMessages) => {
 
 // --- HTTP SERVER ---
 app.get('/msg', (req, res) => {
-    const stringMessages = messageHistory.map(msg => msg.text);
-    res.json({ messages: stringMessages }); 
+    // 1. Map our history array to include only the clean message content strings
+    const rawMessages = messageHistory.map(msg => msg.text);
+    
+    // 2. Wrap each message string inside literal double quotes
+    const quotedMessages = rawMessages.map(text => `"${text}"`);
+    
+    // 3. Join them with actual commas to build a manual JSON array string
+    const arrayString = `[${quotedMessages.join(',')}]`;
+    
+    // 4. Wrap it in your exact target structure object layout
+    const finalOutput = `{"messages":${arrayString}}`;
+    
+    // 5. Send it back as raw, clean text so TurboWarp doesn't strip anything
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(finalOutput);
 });
 
 client.login(BOT_TOKEN);
