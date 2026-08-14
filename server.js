@@ -181,10 +181,25 @@ client.on('messageDeleteBulk', (deletedMessages) => {
 });
 
 // --- HTTP SERVER ---
+// --- HTTP SERVER ---
 app.get('/msg', (req, res) => {
-    const stringMessages = messageHistory.map(msg => msg.text);
-    res.json({ messages: stringMessages });
+    // 1. Pull the clean log strings from our tracked history cache
+    const rawMessages = messageHistory.map(msg => msg.text);
+    
+    // 2. Wrap each array log item inside hard double quotes
+    const quotedMessages = rawMessages.map(text => `"${text}"`);
+    
+    // 3. Chain them using literal commas to manufacture a text-based JSON array
+    const arrayString = `[${quotedMessages.join(',')}]`;
+    
+    // 4. Encapsulate it within your exact target text template framework
+    const finalOutput = `{"messages":${arrayString}}`;
+    
+    // 5. Force the network headers to serve plain text so TurboWarp leaves it raw
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(finalOutput);
 });
+
 
 client.login(BOT_TOKEN);
 
