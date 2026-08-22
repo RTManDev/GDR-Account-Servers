@@ -5,6 +5,7 @@ const cors = require('cors');
 const app = express();
 app.use(cors());
 
+// FORCE GLOBAL READ FROM RENDER SETTINGS:
 const BOT_TOKEN = process.env.BOT_TOKEN; 
 const CHANNEL_ID = '1519853703425949866';
 const ALLOWED_ROLE_ID = '1527446480573698269';
@@ -20,7 +21,6 @@ const client = new Client({
 
 let messageHistory = [];
 
-// Helper to push to history and enforce the 50-message cap
 function pushToHistory(id, text) {
     messageHistory.push({ id, text });
     if (messageHistory.length > 50) {
@@ -64,7 +64,6 @@ client.once('ready', async () => {
         console.error('Error registering slash commands:', error);
     }
 
-    // Fetch initial history without username prefixes
     try {
         const channel = await client.channels.fetch(CHANNEL_ID);
         const fetchedMessages = await channel.messages.fetch({ limit: 50 });
@@ -82,15 +81,10 @@ client.once('ready', async () => {
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
 
-    // Global Staff Role Check
     if (!interaction.member.roles.cache.has(ALLOWED_ROLE_ID) && interaction.user.id !== interaction.guild.ownerId) {
-        return interaction.reply({ 
-            content: 'Only the owner can use this command.', 
-            ephemeral: true 
-        });
+        return interaction.reply({ content: 'Only the owner can use this command.', ephemeral: true });
     }
 
-    // --- COMMAND: /clear ---
     if (interaction.commandName === 'clear') {
         if (interaction.channelId !== CHANNEL_ID) {
             return interaction.reply({ content: 'Sync failed.', ephemeral: true });
@@ -98,16 +92,13 @@ client.on('interactionCreate', async (interaction) => {
         try {
             await interaction.deferReply({ ephemeral: true });
             messageHistory = [];
-            console.log('TurboWarp memory cleared via command');
-
             const fetched = await interaction.channel.messages.fetch({ limit: 100 });
             if (fetched.size > 0) {
                 try {
                     await interaction.channel.bulkDelete(fetched);
                 } catch (bulkError) {
-                    console.log('Bulk delete failed, switching to single deletion mode.');
                     for (const msg of fetched.values()) {
-                        try { await msg.delete(); } catch (singleDeleteError) { continue; }
+                        try { await msg.delete(); } catch (e) { continue; }
                     }
                 }
             }
@@ -119,9 +110,7 @@ client.on('interactionCreate', async (interaction) => {
         return;
     }
 
-    // Acknowledge interaction silently so we can send an actual trackable channel message
     await interaction.deferReply({ ephemeral: true });
-
     let logText = '';
     const targetedUser = interaction.options.getString('username');
 
@@ -137,13 +126,8 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     try {
-        // Send a true message to the text channel so it has a verifiable Discord Message ID
         const sentMessage = await interaction.channel.send({ content: logText });
-        
-        // Save the clean text paired with its real Discord message ID
         pushToHistory(sentMessage.id, logText);
-        console.log(`🔨 Logged to memory with real ID: ${logText}`);
-        
         await interaction.editReply({ content: 'Log sent and tracked successfully.' });
     } catch (error) {
         console.error('Failed to execute log command:', error);
@@ -153,13 +137,9 @@ client.on('interactionCreate', async (interaction) => {
 
 // --- LIVE CHAT LISTENERS ---
 client.on('messageCreate', (message) => {
-    // If it's from a tracked channel and it wasn't sent by our own slash command handler (to prevent duplicates)
     if (message.channel.id === CHANNEL_ID || message.channel.id === '1529275850011312168') {
         if (!message.content || message.content.trim() === '') return;
-        
-        // Skip adding if this exact message ID is already tracked via slash command execution
         if (messageHistory.some(msg => msg.id === message.id)) return;
-
         pushToHistory(message.id, message.content);
     }
 });
@@ -167,7 +147,6 @@ client.on('messageCreate', (message) => {
 client.on('messageDelete', (deletedMessage) => {
     if (deletedMessage.channel.id === CHANNEL_ID || deletedMessage.channel.id === '1529275850011312168') {
         messageHistory = messageHistory.filter(msg => msg.id !== deletedMessage.id);
-        console.log(`Removed deleted message (ID: ${deletedMessage.id}) from cache.`);
     }
 });
 
@@ -176,40 +155,26 @@ client.on('messageDeleteBulk', (deletedMessages) => {
     if (firstMsg && (firstMsg.channel.id === CHANNEL_ID || firstMsg.channel.id === '1529275850011312168')) {
         const deletedIds = deletedMessages.map(msg => msg.id);
         messageHistory = messageHistory.filter(msg => !deletedIds.includes(msg.id));
-        console.log(`Bulk removed ${deletedMessages.size} messages from cache.`);
     }
 });
 
-// --- HTTP SERVER ---
-// --- HTTP SERVER ---
+// --- HTTP SERVER FORMATTED FOR YOUR CUSTOM EXTENSION RAW STRING EXPECTATION ---
 app.get('/msg', (req, res) => {
-    // 1. Pull the clean log strings from our tracked history cache
     const rawMessages = messageHistory.map(msg => msg.text);
-    
-    // 2. Wrap each array log item inside hard double quotes
     const quotedMessages = rawMessages.map(text => `"${text}"`);
-    
-    // 3. Chain them using literal commas to manufacture a text-based JSON array
     const arrayString = `[${quotedMessages.join(',')}]`;
-    
-    // 4. Encapsulate it within your exact target text template framework
     const finalOutput = `{"messages":${arrayString}}`;
     
-    // 5. Force the network headers to serve plain text so TurboWarp leaves it raw
     res.setHeader('Content-Type', 'text/plain');
     res.send(finalOutput);
 });
 
-
-client.login(process.env.BOT_TOKEN);
-
-console.log("Attempting to log into Discord with token length:", process.env.BOT_TOKEN ? process.env.BOT_TOKEN.length : "UNDEFINED");
+// STARTUP INTEGRITY AND ATTEMPT LOGIN LOGS:
+console.log("Token Integrity Test Length:", BOT_TOKEN ? BOT_TOKEN.length : "ZERO / UNDEFINED");
 
 client.login(BOT_TOKEN).catch(err => {
-    console.error("DISCORD LOGIN FAILED CRITICALLY:", err);
+    console.error("DISCORD GATEWAY REJECTED LOGIN:", err);
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Middleman server running on port ${PORT}`));
-
-
