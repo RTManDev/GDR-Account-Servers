@@ -5,7 +5,7 @@ const cors = require('cors');
 const app = express();
 app.use(cors());
 
-// FORCE GLOBAL READ FROM RENDER SETTINGS:
+// Secure environment configuration mapping
 const BOT_TOKEN = process.env.BOT_TOKEN; 
 const CHANNEL_ID = '1519853703425949866';
 const ALLOWED_ROLE_ID = '1527446480573698269';
@@ -55,7 +55,7 @@ const commands = [
 const rest = new REST({ version: '10' }).setToken(BOT_TOKEN);
 
 client.once('ready', async () => {
-    console.log(`Logged in as ${client.user.tag}!`);
+    console.log(`🤖 SUCCESS: Logged into Discord API gateway as ${client.user.tag}!`);
     try {
         console.log('Started refreshing application (/) commands');
         await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
@@ -169,12 +169,33 @@ app.get('/msg', (req, res) => {
     res.send(finalOutput);
 });
 
-// STARTUP INTEGRITY AND ATTEMPT LOGIN LOGS:
-console.log("Token Integrity Test Length:", BOT_TOKEN ? BOT_TOKEN.length : "ZERO / UNDEFINED");
-
-client.login(BOT_TOKEN).catch(err => {
-    console.error("DISCORD GATEWAY REJECTED LOGIN:", err);
+// Fallback home endpoint to verify active web connection
+app.get('/', (req, res) => {
+    res.send('Middleman web architecture server is healthy and listening!');
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Middleman server running on port ${PORT}`));
+// --- ASYNCHRONOUS INITIALIZATION STARTER ---
+async function startApp() {
+    console.log("Verifying token presence...");
+    if (!BOT_TOKEN) {
+        console.error("❌ CRITICAL ERROR: process.env.BOT_TOKEN is completely missing inside Render environment configurations!");
+        process.exit(1);
+    }
+    
+    console.log(`Token loaded cleanly. Length validation check: ${BOT_TOKEN.length} characters.`);
+    
+    try {
+        console.log("Attempting WebSocket synchronization connection with Discord...");
+        await client.login(BOT_TOKEN);
+        
+        // Start web bindings only after the Discord client connects successfully
+        const PORT = process.env.PORT || 3000;
+        app.listen(PORT, () => console.log(`🚀 Middleman server fully linked online on port ${PORT}`));
+    } catch (loginError) {
+        console.error("❌ DISCORD LOGIN REJECTED CRITICALLY:", loginError);
+        process.exit(1); // Force termination so Render reports the deployment failure explicitly
+    }
+}
+
+startApp();
+
