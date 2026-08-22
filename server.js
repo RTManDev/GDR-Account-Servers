@@ -5,7 +5,7 @@ const cors = require('cors');
 const app = express();
 app.use(cors());
 
-const BOT_TOKEN = process.env.BOT_TOKEN; 
+const BOT_TOKEN = 'MTUyMTM5Njg1MjQyMjA4NjcwNw.Gxkgvx.QTVIScfJ3Eel-9ARZvz6dzbZ9lrRp18VMOLu70'; 
 const CHANNEL_ID = '1519853703425949866';
 const ALLOWED_ROLE_ID = '1527446480573698269';
 
