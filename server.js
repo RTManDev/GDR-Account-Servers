@@ -203,6 +203,12 @@ app.get('/msg', (req, res) => {
 
 client.login(process.env.BOT_TOKEN);
 
+console.log("Attempting to log into Discord with token length:", process.env.BOT_TOKEN ? process.env.BOT_TOKEN.length : "UNDEFINED");
+
+client.login(BOT_TOKEN).catch(err => {
+    console.error("DISCORD LOGIN FAILED CRITICALLY:", err);
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Middleman server running on port ${PORT}`));
 
