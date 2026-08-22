@@ -1,14 +1,17 @@
 const { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const express = require('express');
 const cors = require('cors');
+const https = require('https');
 
 const app = express();
 app.use(cors());
 
 // Secure environment configuration mapping
-const BOT_TOKEN = process.env.BOT_TOKEN; 
+const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHANNEL_ID = '1519853703425949866';
 const ALLOWED_ROLE_ID = '1527446480573698269';
+const SECONDARY_CHANNEL_ID = '1529275850011312168';
+const RENDER_EXTERNAL_URL = 'https://gdr-account-servers.onrender.com';
 
 const client = new Client({
     intents: [
@@ -69,7 +72,6 @@ client.once('ready', async () => {
         const fetchedMessages = await channel.messages.fetch({ limit: 50 });
         const reverseHistory = Array.from(fetchedMessages.values()).reverse();
         const filteredHistory = reverseHistory.filter(msg => msg.content && msg.content.trim() !== '');
-        
         messageHistory = filteredHistory.map(msg => ({ id: msg.id, text: msg.content }));
         console.log(`Successfully imported ${messageHistory.length} historical text messages!`);
     } catch (error) {
@@ -137,7 +139,7 @@ client.on('interactionCreate', async (interaction) => {
 
 // --- LIVE CHAT LISTENERS ---
 client.on('messageCreate', (message) => {
-    if (message.channel.id === CHANNEL_ID || message.channel.id === '1529275850011312168') {
+    if (message.channel.id === CHANNEL_ID || message.channel.id === SECONDARY_CHANNEL_ID) {
         if (!message.content || message.content.trim() === '') return;
         if (messageHistory.some(msg => msg.id === message.id)) return;
         pushToHistory(message.id, message.content);
@@ -145,56 +147,56 @@ client.on('messageCreate', (message) => {
 });
 
 client.on('messageDelete', (deletedMessage) => {
-    if (deletedMessage.channel.id === CHANNEL_ID || deletedMessage.channel.id === '1529275850011312168') {
+    if (deletedMessage.channel.id === CHANNEL_ID || deletedMessage.channel.id === SECONDARY_CHANNEL_ID) {
         messageHistory = messageHistory.filter(msg => msg.id !== deletedMessage.id);
     }
 });
 
 client.on('messageDeleteBulk', (deletedMessages) => {
     const firstMsg = deletedMessages.first();
-    if (firstMsg && (firstMsg.channel.id === CHANNEL_ID || firstMsg.channel.id === '1529275850011312168')) {
+    if (firstMsg && (firstMsg.channel.id === CHANNEL_ID || firstMsg.channel.id === SECONDARY_CHANNEL_ID)) {
         const deletedIds = deletedMessages.map(msg => msg.id);
         messageHistory = messageHistory.filter(msg => !deletedIds.includes(msg.id));
     }
 });
 
-// --- HTTP SERVER FORMATTED FOR YOUR CUSTOM EXTENSION RAW STRING EXPECTATION ---
+// --- HTTP SERVER FOR TURBOWARP EXTENSION RAW EXPECTATION ---
 app.get('/msg', (req, res) => {
     const rawMessages = messageHistory.map(msg => msg.text);
-    const quotedMessages = rawMessages.map(text => `"${text}"`);
-    const arrayString = `[${quotedMessages.join(',')}]`;
-    const finalOutput = `{"messages":${arrayString}}`;
+    
+    // Safely structure JSON using native stringify to escape dirty characters
+    const cleanOutput = JSON.stringify({ messages: rawMessages });
     
     res.setHeader('Content-Type', 'text/plain');
-    res.send(finalOutput);
+    res.send(cleanOutput);
 });
 
-// Fallback home endpoint to verify active web connection
 app.get('/', (req, res) => {
     res.send('Middleman web architecture server is healthy and listening!');
 });
 
 // --- INITIALIZATION START ---
-// 1. Immediately bind and open the port to pass Render's port scanners
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Express server successfully opened port ${PORT}`);
-    
-    // 2. Start the Discord connection in the background right after
     connectDiscord();
+    
+    // Self-ping keeping Render Free Tier from entering sleep mode (runs every 10 mins)
+    setInterval(() => {
+        https.get(RENDER_EXTERNAL_URL, (res) => {
+            console.log(`Self-ping verification code status: ${res.statusCode}`);
+        }).on('error', (err) => {
+            console.error('Self-pinging process warning:', err.message);
+        });
+    }, 600000); 
 });
 
 async function connectDiscord() {
-    console.log("Checking token presence...");
     if (!BOT_TOKEN) {
         console.error("❌ ERROR: BOT_TOKEN is missing from your Render Environment variables!");
         return;
     }
-    
-    console.log(`Token validation check: ${BOT_TOKEN.length} characters.`);
-    
     try {
-        console.log("Connecting to Discord WebSocket API gateway...");
         await client.login(BOT_TOKEN);
     } catch (loginError) {
         console.error("❌ DISCORD LOGIN REJECTED CRITICALLY:", loginError);
