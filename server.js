@@ -3,16 +3,19 @@ const express = require('express');
 const cors = require('cors');
 const https = require('https');
 
+console.log("⚙️ System starting up...");
+
 const app = express();
 app.use(cors());
 
-// Secure environment configuration mapping
+// Configuration variables
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHANNEL_ID = '1519853703425949866';
 const ALLOWED_ROLE_ID = '1527446480573698269';
 const SECONDARY_CHANNEL_ID = '1529275850011312168';
 const RENDER_EXTERNAL_URL = 'https://gdr-account-servers.onrender.com';
 
+// Initialize Discord Client
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -31,7 +34,7 @@ function pushToHistory(id, text) {
     }
 }
 
-// --- REGISTER THE SLASH COMMANDS ---
+// Define slash commands
 const commands = [
     new SlashCommandBuilder()
         .setName('clear')
@@ -55,31 +58,40 @@ const commands = [
         .addStringOption(option => option.setName('username').setDescription('The name of the user to log as permanently banned').setRequired(true))
 ].map(command => command.toJSON());
 
-const rest = new REST({ version: '10' }).setToken(BOT_TOKEN);
-
+// Event: Once ready
 client.once('ready', async () => {
     console.log(`🤖 SUCCESS: Logged into Discord API gateway as ${client.user.tag}!`);
+    
+    // Register Slash Commands
     try {
-        console.log('Started refreshing application (/) commands');
+        console.log('🔄 Started refreshing application (/) commands...');
+        const rest = new REST({ version: '10' }).setToken(BOT_TOKEN);
         await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-        console.log('Successfully reloaded application (/) commands');
+        console.log('✅ Successfully reloaded application (/) commands.');
     } catch (error) {
-        console.error('Error registering slash commands:', error);
+        console.log('❌ Error registering slash commands:', error.message);
+        console.log(error);
     }
 
+    // Fetch message history
     try {
+        console.log(`🔄 Fetching initial history from channel: ${CHANNEL_ID}...`);
         const channel = await client.channels.fetch(CHANNEL_ID);
+        if (!channel) {
+            console.log("❌ Could not find channel. Make sure the bot is invited to that server.");
+            return;
+        }
         const fetchedMessages = await channel.messages.fetch({ limit: 50 });
         const reverseHistory = Array.from(fetchedMessages.values()).reverse();
         const filteredHistory = reverseHistory.filter(msg => msg.content && msg.content.trim() !== '');
         messageHistory = filteredHistory.map(msg => ({ id: msg.id, text: msg.content }));
-        console.log(`Successfully imported ${messageHistory.length} historical text messages!`);
+        console.log(`✅ Successfully imported ${messageHistory.length} historical text messages!`);
     } catch (error) {
-        console.error("Failed to fetch historical messages:", error);
+        console.log("❌ Failed to fetch historical messages:", error.message);
     }
 });
 
-// --- LISTEN FOR SLASH COMMAND INTERACTIONS ---
+// Event: Interaction commands
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
 
@@ -106,7 +118,7 @@ client.on('interactionCreate', async (interaction) => {
             }
             await interaction.editReply({ content: 'Successfully purged all logs server cache!' });
         } catch (error) {
-            console.error('Failed to clear logs:', error);
+            console.log('❌ Failed to clear logs:', error.message);
             await interaction.editReply({ content: 'An unexpected error occurred while clearing.' });
         }
         return;
@@ -132,12 +144,12 @@ client.on('interactionCreate', async (interaction) => {
         pushToHistory(sentMessage.id, logText);
         await interaction.editReply({ content: 'Log sent and tracked successfully.' });
     } catch (error) {
-        console.error('Failed to execute log command:', error);
+        console.log('❌ Failed to execute log command:', error.message);
         await interaction.editReply({ content: 'Failed to process command.' });
     }
 });
 
-// --- LIVE CHAT LISTENERS ---
+// Real-time Event Listeners
 client.on('messageCreate', (message) => {
     if (message.channel.id === CHANNEL_ID || message.channel.id === SECONDARY_CHANNEL_ID) {
         if (!message.content || message.content.trim() === '') return;
@@ -160,13 +172,10 @@ client.on('messageDeleteBulk', (deletedMessages) => {
     }
 });
 
-// --- HTTP SERVER FOR TURBOWARP EXTENSION RAW EXPECTATION ---
+// API Routes
 app.get('/msg', (req, res) => {
     const rawMessages = messageHistory.map(msg => msg.text);
-    
-    // Safely structure JSON using native stringify to escape dirty characters
     const cleanOutput = JSON.stringify({ messages: rawMessages });
-    
     res.setHeader('Content-Type', 'text/plain');
     res.send(cleanOutput);
 });
@@ -175,30 +184,38 @@ app.get('/', (req, res) => {
     res.send('Middleman web architecture server is healthy and listening!');
 });
 
-// --- INITIALIZATION START ---
+// Start listening and initialization
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Express server successfully opened port ${PORT}`);
+    
+    // Connect to Discord
     connectDiscord();
     
-    // Self-ping keeping Render Free Tier from entering sleep mode (runs every 10 mins)
+    // Self-ping loop
     setInterval(() => {
         https.get(RENDER_EXTERNAL_URL, (res) => {
-            console.log(`Self-ping verification code status: ${res.statusCode}`);
+            console.log(`⏰ Self-ping successful. Status code: ${res.statusCode}`);
         }).on('error', (err) => {
-            console.error('Self-pinging process warning:', err.message);
+            console.log('⚠️ Self-pinging process warning:', err.message);
         });
     }, 600000); 
 });
 
 async function connectDiscord() {
+    console.log("🔗 Initiating connection sequence to Discord WebSocket API...");
+    
     if (!BOT_TOKEN) {
-        console.error("❌ ERROR: BOT_TOKEN is missing from your Render Environment variables!");
+        console.log("❌ CRITICAL ERROR: BOT_TOKEN is missing or empty inside Render Environment Variables!");
         return;
     }
+    
+    console.log(`Token presence verified. Length: ${BOT_TOKEN.length} characters.`);
+    
     try {
         await client.login(BOT_TOKEN);
     } catch (loginError) {
-        console.error("❌ DISCORD LOGIN REJECTED CRITICALLY:", loginError);
+        console.log("❌ DISCORD LOGIN REJECTED CRITICALLY:");
+        console.log(loginError);
     }
 }
