@@ -174,28 +174,29 @@ app.get('/', (req, res) => {
     res.send('Middleman web architecture server is healthy and listening!');
 });
 
-// --- ASYNCHRONOUS INITIALIZATION STARTER ---
-async function startApp() {
-    console.log("Verifying token presence...");
+// --- INITIALIZATION START ---
+// 1. Immediately bind and open the port to pass Render's port scanners
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`🚀 Express server successfully opened port ${PORT}`);
+    
+    // 2. Start the Discord connection in the background right after
+    connectDiscord();
+});
+
+async function connectDiscord() {
+    console.log("Checking token presence...");
     if (!BOT_TOKEN) {
-        console.error("❌ CRITICAL ERROR: process.env.BOT_TOKEN is completely missing inside Render environment configurations!");
-        process.exit(1);
+        console.error("❌ ERROR: BOT_TOKEN is missing from your Render Environment variables!");
+        return;
     }
     
-    console.log(`Token loaded cleanly. Length validation check: ${BOT_TOKEN.length} characters.`);
+    console.log(`Token validation check: ${BOT_TOKEN.length} characters.`);
     
     try {
-        console.log("Attempting WebSocket synchronization connection with Discord...");
+        console.log("Connecting to Discord WebSocket API gateway...");
         await client.login(BOT_TOKEN);
-        
-        // Start web bindings only after the Discord client connects successfully
-        const PORT = process.env.PORT || 3000;
-        app.listen(PORT, () => console.log(`🚀 Middleman server fully linked online on port ${PORT}`));
     } catch (loginError) {
         console.error("❌ DISCORD LOGIN REJECTED CRITICALLY:", loginError);
-        process.exit(1); // Force termination so Render reports the deployment failure explicitly
     }
 }
-
-startApp();
-
