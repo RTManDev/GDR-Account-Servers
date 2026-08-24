@@ -225,3 +225,16 @@ client.on('warn', (warning) => console.log(`⚠️ [Discord Warn]: ${warning}`))
 client.on('error', (error) => console.log(`❌ [Discord Client Error]: ${error.message}`));
 client.on('shardError', (error, shardId) => console.log(`❌ [Shard ${shardId} Error]: ${error.message}`));
 
+// --- AUTO KEEP-ALIVE SYSTEM ---
+// Replace this placeholder string with your literal live Render web application URL
+const APP_URL = "https://gdr-servers.onrender.com"; 
+
+setInterval(async () => {
+    try {
+        // Force the app to fetch its own root endpoint over the network
+        const response = await fetch(APP_URL);
+        console.log(`🔄 Keep-Alive Sync: Ping sent to infrastructure. Status: ${response.status}`);
+    } catch (pingError) {
+        console.error("⚠️ Keep-Alive Sync Warning: Local ping attempt failed:", pingError.message);
+    }
+}, 13 * 60 * 1000); // Triggers automatically every 13 minutes (13m * 60s * 1000ms)
