@@ -70,24 +70,50 @@ client.once('ready', async () => {
         console.log('✅ Successfully reloaded application (/) commands.');
     } catch (error) {
         console.log('❌ Error registering slash commands:', error.message);
-        console.log(error);
     }
 
-    // Fetch message history
+    // --- DEEP RECURSIVE HISTORY CRAWLER ---
     try {
-        console.log(`🔄 Fetching initial history from channel: ${CHANNEL_ID}...`);
+        console.log(`🔄 Initiating deep crawl for channel: ${CHANNEL_ID}...`);
         const channel = await client.channels.fetch(CHANNEL_ID);
         if (!channel) {
-            console.log("❌ Could not find channel. Make sure the bot is invited to that server.");
+            console.log("❌ Could not find channel.");
             return;
         }
-        const fetchedMessages = await channel.messages.fetch({ limit: 50 });
-        const reverseHistory = Array.from(fetchedMessages.values()).reverse();
-        const filteredHistory = reverseHistory.filter(msg => msg.content && msg.content.trim() !== '');
+
+        let allFetched = [];
+        let lastId = null;
+        let crawling = true;
+
+        // Keep looping backwards through time 100 messages at a time until reaching the channel beginning
+        while (crawling) {
+            const options = { limit: 100 };
+            if (lastId) options.before = lastId;
+
+            const messages = await channel.messages.fetch(options);
+            if (messages.size === 0) {
+                crawling = false;
+                break;
+            }
+
+            allFetched.push(...messages.values());
+            lastId = messages.last().id;
+
+            // Optional safety cap: Stop if history gets massive to protect memory (e.g., 500 messages)
+            if (allFetched.length >= 500) {
+                crawling = false;
+            }
+        }
+
+        // Sort chronologically (oldest to newest) and format
+        const sortedHistory = allFetched.reverse();
+        const filteredHistory = sortedHistory.filter(msg => msg.content && msg.content.trim() !== '');
+        
         messageHistory = filteredHistory.map(msg => ({ id: msg.id, text: msg.content }));
-        console.log(`✅ Successfully imported ${messageHistory.length} historical text messages!`);
+        console.log(`✅ Deep crawl complete! Imported ${messageHistory.length} total historical messages into memory.`);
+        
     } catch (error) {
-        console.log("❌ Failed to fetch historical messages:", error.message);
+        console.log("❌ Failed to deep crawl historical messages:", error.message);
     }
 });
 
