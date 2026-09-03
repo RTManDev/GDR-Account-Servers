@@ -29,7 +29,7 @@ let messageHistory = [];
 
 function pushToHistory(id, text) {
     messageHistory.push({ id, text });
-    if (messageHistory.length > 50) {
+    if (messageHistory.length > 500) {
         messageHistory.shift();
     }
 }
