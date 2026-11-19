@@ -1,0 +1,1 @@
+I finally got the new server up and running along with even more storage to store levels with. I also added a new backup system that'll also allow you guys to use it aswell. However all the levels that were in the previous server are permanently lost.@
